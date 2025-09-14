@@ -13,6 +13,30 @@ import org.springframework.stereotype.Component;
 @Component
 public class MILPPlanGenerator implements PlanGenerator {
 
+//    The problem I had was that we cant use variable value in calculation of objective
+//    for example we can't do : objective.setCoefficient(variable, f(variable) * preference * product.getGramsPerUnit())
+//    and I needed that to implement law of dimnishing value so I'm simulating it with those segments and max int,
+//    now each product will have multiple variables with differenc coeficients according to mentioned law
+
+    private static final int MAX_INT_AMOUNT = 15;
+    private static final int MAX_SEGMENTS_AMOUNT = 10;
+    private static final double SEGMENT_SIZE = 50.0;
+
+    public double calculateVariableCoefficient(double calorieDensity, double preference, int segmentIndex) {
+        //function : f(x) = 1 - e^(-k*x)
+        double constK0 = 0.8;
+        double refCalorieDensity = 2.0;
+        double k = constK0 * (calorieDensity / refCalorieDensity);
+        double intervalStart = segmentIndex * SEGMENT_SIZE;
+        double intervalEnd = intervalStart + SEGMENT_SIZE;
+
+        double integralStartValue = 1 - Math.exp(-k * intervalStart);
+        double integralEndValue = 1 - Math.exp(-k * intervalEnd);
+        //robię tutaj nominalną wartość przypadającą na jeden gram produktu.
+        double marginalUtilityPerUnit = (integralEndValue - integralStartValue) / SEGMENT_SIZE;
+        return preference * marginalUtilityPerUnit;
+    }
+
     @Override
     public Plan generate(Plan plan, Map<Product, Double> preferences) {
         Loader.loadNativeLibraries();
@@ -21,14 +45,21 @@ public class MILPPlanGenerator implements PlanGenerator {
             throw new IllegalStateException("Could not create solver.");
         }
 
-        double infinity = Double.POSITIVE_INFINITY;
-
-        Map<Product, MPVariable> productVariables = new HashMap<>();
+        Map<Product, List<MPVariable>> productVariables = new HashMap<>();
         for (Product product : preferences.keySet()) {
-            MPVariable variable = "piece".equals(product.getUnit().getName())
-                    ? solver.makeIntVar(0.0, infinity, "x_" + product.getId())
-                    : solver.makeNumVar(0.0, infinity, "x_" + product.getId());
-            productVariables.put(product, variable);
+            List<MPVariable> variables = new ArrayList<>();
+            if("piece".equals(product.getUnit().getName())){
+                for(int i=0; i<MAX_INT_AMOUNT; i++){
+                    MPVariable variable = solver.makeIntVar(0.0, 1.0, "x_" + product.getId() + "_" + i);
+                    variables.add(variable);
+                }
+            }else{
+                for(int i=0; i<MAX_SEGMENTS_AMOUNT; i++){
+                    MPVariable variable = solver.makeNumVar(0.0, SEGMENT_SIZE, "x_" + product.getId() + "_" + i);
+                    variables.add(variable);
+                }
+            }
+            productVariables.put(product, variables);
         }
 
         MPConstraint calorieConstraint = solver.makeConstraint(0.0, plan.getCaloriesTarget());
@@ -38,19 +69,24 @@ public class MILPPlanGenerator implements PlanGenerator {
 
         MPObjective objective = solver.objective();
 
-        for (Map.Entry<Product, MPVariable> entry : productVariables.entrySet()) {
+        for (Map.Entry<Product, List<MPVariable>> entry : productVariables.entrySet()) {
             Product product = entry.getKey();
-            MPVariable variable = entry.getValue();
+            List<MPVariable> variables = entry.getValue();
 
             NutritionPerUnit nutritionPerUnit = new NutritionPerUnit(product);
+            double gramsPerUnit = product.getGramsPerUnit();
+            double calorieDensity = nutritionPerUnit.getKcal() / gramsPerUnit;
+            
+            for(int i=0; i<variables.size(); i++){
+                MPVariable currVariable = variables.get(i);
+                calorieConstraint.setCoefficient(currVariable, nutritionPerUnit.getKcal());
+                proteinConstraint.setCoefficient(currVariable, nutritionPerUnit.getProtein());
+                carbohydrateConstraint.setCoefficient(currVariable, nutritionPerUnit.getCarbs());
+                fatConstraint.setCoefficient(currVariable, nutritionPerUnit.getFats());
 
-            calorieConstraint.setCoefficient(variable, nutritionPerUnit.getKcal());
-            proteinConstraint.setCoefficient(variable, nutritionPerUnit.getProtein());
-            carbohydrateConstraint.setCoefficient(variable, nutritionPerUnit.getCarbs());
-            fatConstraint.setCoefficient(variable, nutritionPerUnit.getFats());
-
-            double preference = preferences.getOrDefault(product, 1.0);
-            objective.setCoefficient(variable, preference * product.getGramsPerUnit());
+                double variableCoef = calculateVariableCoefficient(calorieDensity, preferences.getOrDefault(product, 1.0), i);
+                objective.setCoefficient(currVariable, variableCoef );
+            }
         }
 
         objective.setMaximization();
@@ -66,22 +102,29 @@ public class MILPPlanGenerator implements PlanGenerator {
 
         List<PlanProduct> planProducts = new ArrayList<>();
 
-        for (Map.Entry<Product, MPVariable> entry : productVariables.entrySet()) {
-            double quantity = entry.getValue().solutionValue();
-            if (quantity > 0) {
-                Product product = entry.getKey();
+        for (Map.Entry<Product, List<MPVariable>> entry : productVariables.entrySet()) {
+            Product product = entry.getKey();
+            double variableCount = 0;
+            for(MPVariable variable : entry.getValue()){
+                double quantity = variable.solutionValue();
+                if(quantity <= 0 ){
+                    break;
+                }
+                variableCount += quantity;
+            }
+            if (variableCount > 0) {
                 NutritionPerUnit nutritionPerUnit = new NutritionPerUnit(product);
 
-                totalCalories += quantity * nutritionPerUnit.getKcal();
-                totalProteins += quantity * nutritionPerUnit.getProtein();
-                totalCarbs += quantity * nutritionPerUnit.getCarbs();
-                totalFats += quantity * nutritionPerUnit.getFats();
+                totalCalories += variableCount * nutritionPerUnit.getKcal();
+                totalProteins += variableCount * nutritionPerUnit.getProtein();
+                totalCarbs += variableCount * nutritionPerUnit.getCarbs();
+                totalFats += variableCount * nutritionPerUnit.getFats();
 
                 PlanProduct planProduct = PlanProduct.builder()
                         .id(new PlanProductId(plan.getId(), product.getId()))
                         .plan(plan)
                         .product(product)
-                        .quantity(quantity)
+                        .quantity(variableCount)
                         .build();
 
                 planProducts.add(planProduct);
