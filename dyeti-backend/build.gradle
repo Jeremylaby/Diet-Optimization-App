@@ -26,7 +26,7 @@ spotless {
 		importOrder()
 		removeUnusedImports()
 		cleanthat()
-		palantirJavaFormat().formatJavadoc(true)
+		palantirJavaFormat()
 	}
 }
 checkstyle {

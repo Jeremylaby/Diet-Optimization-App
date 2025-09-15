@@ -5,8 +5,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import ki.agh.dyeti.dto.UserDTO;
+import ki.agh.dyeti.dto.UserPasswordDTO;
 import ki.agh.dyeti.dto.request.RegisterRequest;
+import ki.agh.dyeti.exception.InvalidPasswordException;
 import ki.agh.dyeti.exception.InvalidRoleChangeException;
+import ki.agh.dyeti.exception.UserEmailNotFoundException;
 import ki.agh.dyeti.exception.UserNotFoundException;
 import ki.agh.dyeti.model.Role;
 import ki.agh.dyeti.model.User;
@@ -27,6 +30,10 @@ public class CustomUserDetailsService implements UserDetailsService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    public User getUserById(long id) {
+        return userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
+    }
+
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         return userRepository
@@ -36,6 +43,52 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     public User getUserByUsername(String username) {
         return (User) loadUserByUsername(username);
+    }
+
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email).orElseThrow(() -> new UserEmailNotFoundException(email));
+    }
+
+    // do testowania
+    @Transactional
+    public void saveUser(User user) {
+        userRepository.save(user);
+    }
+
+    public UserDTO updateUserProfile(User user, UserDTO userDTO) {
+        if (userDTO.username() != null) {
+            user.setUsername(userDTO.username());
+        }
+        if (userDTO.email() != null) {
+            user.setEmail(userDTO.email());
+        }
+        if (userDTO.age() != null) {
+            user.setAge(userDTO.age());
+        }
+        if (userDTO.gender() != null) {
+            user.setGender(userDTO.gender());
+        }
+        if (userDTO.height() != null) {
+            user.setHeight(userDTO.height());
+        }
+        if (userDTO.weight() != null) {
+            user.setWeight(userDTO.weight());
+        }
+        if (userDTO.energyReq() != null) {
+            user.setEnergyReq(userDTO.energyReq());
+        }
+        if (userDTO.proteinReq() != null) {
+            user.setProteinReq(userDTO.proteinReq());
+        }
+        if (userDTO.carbsReq() != null) {
+            user.setCarbsReq(userDTO.carbsReq());
+        }
+        if (userDTO.fatReq() != null) {
+            user.setFatReq(userDTO.fatReq());
+        }
+
+        userRepository.save(user);
+        return UserDTO.fromUser(user);
     }
 
     @Transactional
@@ -94,5 +147,23 @@ public class CustomUserDetailsService implements UserDetailsService {
         user.setRole(newRole);
         User saved = userRepository.save(user);
         return UserDTO.fromUser(saved);
+    }
+
+    public UserDTO changePassword(Long userId, UserPasswordDTO userPasswordDTO) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+
+        if (!passwordEncoder.matches(userPasswordDTO.getCurrentPassword(), user.getPassword())) {
+            throw new InvalidPasswordException("Current password is incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(userPasswordDTO.getNewPassword()));
+        User updatedUser = userRepository.save(user);
+
+        return UserDTO.fromUser(updatedUser);
+    }
+
+    public void deactivateUser(String username) {
+        User user = getUserByUsername(username);
+        userRepository.delete(user);
     }
 }

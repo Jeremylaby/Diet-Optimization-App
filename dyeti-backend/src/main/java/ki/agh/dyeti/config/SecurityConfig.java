@@ -35,13 +35,14 @@ public class SecurityConfig {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 /*
-                tu są rzeczy które nie wymagają zalogowania żeby do nich mieć dostęp
-                więc jak będziecie coś robić co chcecie żeby był dostęp bez logowania
-                to tu trzeba dodać to powinno też działać jak dacie "/**"
-                */
+                 * tu są rzeczy które nie wymagają zalogowania żeby do nich mieć dostęp więc jak
+                 * będziecie coś robić co chcecie żeby był dostęp bez logowania to tu trzeba
+                 * dodać to powinno też działać jak dacie "/**"
+                 */
                 .authorizeHttpRequests(auth -> auth.requestMatchers("/auth/login", "/auth/register")
                         .permitAll()
-                        // albo wywalcie te 2 linie bo to ustawia że wszystkie inne endpointy wymagają auth
+                        // albo wywalcie te 2 linie bo to ustawia że wszystkie inne endpointy wymagają
+                        // auth
                         .requestMatchers("/admin/**")
                         .hasAnyRole("ADMIN", "OWNER")
                         .anyRequest()
@@ -83,10 +84,10 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         /*
-           Narazie dałem zgodę na wszystko ale jak już będziemy mieli jakiś frontend
-           to można udzielić zgodę tylko na dane originsy metody headery itp plus
-           rozbić to na więcej configów
-        */
+         * Narazie dałem zgodę na wszystko ale jak już będziemy mieli jakiś frontend to
+         * można udzielić zgodę tylko na dane originsy metody headery itp plus rozbić to
+         * na więcej configów
+         */
         config.setAllowCredentials(true);
         config.addAllowedOrigin("http://localhost:5173");
         config.addAllowedOrigin("http://localhost:3000");
@@ -94,10 +95,10 @@ public class SecurityConfig {
         config.addAllowedMethod("*");
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         /*
-            tu określamy do jakich endpointów stosujemy ten config
-            można potem dodać drugi i określić go explicite do czego używamy np.
-            admin config do /admin public config do /public itp
-        */
+         * tu określamy do jakich endpointów stosujemy ten config można potem dodać
+         * drugi i określić go explicite do czego używamy np. admin config do /admin
+         * public config do /public itp
+         */
 
         source.registerCorsConfiguration("/**", config);
         return source;
