@@ -6,16 +6,19 @@ import lombok.Data;
 @Data
 public class NutritionPerUnit {
 
+    private static final double NUTRITION_LABEL_BASE_GRAMS = 100.0;
+
     private final double kcal;
     private final double protein;
     private final double carbs;
     private final double fats;
 
     public NutritionPerUnit(Product product) {
-        double grams = product.getGramsPerUnit();
-        this.kcal = grams * product.getKcal100g() / 100.0;
-        this.protein = grams * product.getProtein100g() / 100.0;
-        this.carbs = grams * product.getCarbs100g() / 100.0;
-        this.fats = grams * product.getFat100g() / 100.0;
+        final double gramsPerUnit = product.getGramsPerUnit();
+        final double perUnitFactor = gramsPerUnit / NUTRITION_LABEL_BASE_GRAMS;
+        this.kcal = perUnitFactor * product.getKcal100g();
+        this.protein = perUnitFactor * product.getProtein100g();
+        this.carbs = perUnitFactor * product.getCarbs100g();
+        this.fats = perUnitFactor * product.getFat100g();
     }
 }

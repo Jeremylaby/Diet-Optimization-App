@@ -13,26 +13,28 @@ import org.springframework.stereotype.Component;
 @Component
 public class MILPPlanGenerator implements PlanGenerator {
 
-//    The problem I had was that we cant use variable value in calculation of objective
-//    for example we can't do : objective.setCoefficient(variable, f(variable) * preference * product.getGramsPerUnit())
-//    and I needed that to implement law of dimnishing value so I'm simulating it with those segments and max int,
-//    now each product will have multiple variables with differenc coeficients according to mentioned law
+    //    The problem I had was that we cant use variable value in calculation of objective
+    //    for example we can't do : objective.setCoefficient(variable, f(variable) * preference *
+    // product.getGramsPerUnit())
+    //    and I needed that to implement law of dimnishing value so I'm simulating it with those segments and max int,
+    //    now each product will have multiple variables with differenc coeficients according to mentioned law
 
     private static final int MAX_INT_AMOUNT = 15;
     private static final int MAX_SEGMENTS_AMOUNT = 10;
     private static final double SEGMENT_SIZE = 50.0;
+    private static final double K0_CONST = 0.8;
+    private static final double CALORIE_DENSITY = 2.0;
 
     public double calculateVariableCoefficient(double calorieDensity, double preference, int segmentIndex) {
-        //function : f(x) = 1 - e^(-k*x)
-        double constK0 = 0.8;
-        double refCalorieDensity = 2.0;
-        double k = constK0 * (calorieDensity / refCalorieDensity);
+        // function : f(x) = 1 - e^(-k*x)
+
+        double k = K0_CONST * (calorieDensity / CALORIE_DENSITY);
         double intervalStart = segmentIndex * SEGMENT_SIZE;
         double intervalEnd = intervalStart + SEGMENT_SIZE;
 
         double integralStartValue = 1 - Math.exp(-k * intervalStart);
         double integralEndValue = 1 - Math.exp(-k * intervalEnd);
-        //robię tutaj nominalną wartość przypadającą na jeden gram produktu.
+        // robię tutaj nominalną wartość przypadającą na jeden gram produktu.
         double marginalUtilityPerUnit = (integralEndValue - integralStartValue) / SEGMENT_SIZE;
         return preference * marginalUtilityPerUnit;
     }
@@ -48,13 +50,13 @@ public class MILPPlanGenerator implements PlanGenerator {
         Map<Product, List<MPVariable>> productVariables = new HashMap<>();
         for (Product product : preferences.keySet()) {
             List<MPVariable> variables = new ArrayList<>();
-            if("piece".equals(product.getUnit().getName())){
-                for(int i=0; i<MAX_INT_AMOUNT; i++){
+            if ("piece".equals(product.getUnit().getName())) {
+                for (int i = 0; i < MAX_INT_AMOUNT; i++) {
                     MPVariable variable = solver.makeIntVar(0.0, 1.0, "x_" + product.getId() + "_" + i);
                     variables.add(variable);
                 }
-            }else{
-                for(int i=0; i<MAX_SEGMENTS_AMOUNT; i++){
+            } else {
+                for (int i = 0; i < MAX_SEGMENTS_AMOUNT; i++) {
                     MPVariable variable = solver.makeNumVar(0.0, SEGMENT_SIZE, "x_" + product.getId() + "_" + i);
                     variables.add(variable);
                 }
@@ -76,16 +78,17 @@ public class MILPPlanGenerator implements PlanGenerator {
             NutritionPerUnit nutritionPerUnit = new NutritionPerUnit(product);
             double gramsPerUnit = product.getGramsPerUnit();
             double calorieDensity = nutritionPerUnit.getKcal() / gramsPerUnit;
-            
-            for(int i=0; i<variables.size(); i++){
+
+            for (int i = 0; i < variables.size(); i++) {
                 MPVariable currVariable = variables.get(i);
                 calorieConstraint.setCoefficient(currVariable, nutritionPerUnit.getKcal());
                 proteinConstraint.setCoefficient(currVariable, nutritionPerUnit.getProtein());
                 carbohydrateConstraint.setCoefficient(currVariable, nutritionPerUnit.getCarbs());
                 fatConstraint.setCoefficient(currVariable, nutritionPerUnit.getFats());
 
-                double variableCoef = calculateVariableCoefficient(calorieDensity, preferences.getOrDefault(product, 1.0), i);
-                objective.setCoefficient(currVariable, variableCoef );
+                double variableCoef =
+                        calculateVariableCoefficient(calorieDensity, preferences.getOrDefault(product, 1.0), i);
+                objective.setCoefficient(currVariable, variableCoef);
             }
         }
 
@@ -105,9 +108,9 @@ public class MILPPlanGenerator implements PlanGenerator {
         for (Map.Entry<Product, List<MPVariable>> entry : productVariables.entrySet()) {
             Product product = entry.getKey();
             double variableCount = 0;
-            for(MPVariable variable : entry.getValue()){
+            for (MPVariable variable : entry.getValue()) {
                 double quantity = variable.solutionValue();
-                if(quantity <= 0 ){
+                if (quantity <= 0) {
                     break;
                 }
                 variableCount += quantity;

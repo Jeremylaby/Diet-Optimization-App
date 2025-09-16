@@ -49,8 +49,8 @@ export default defineConfig([
       parser: tseslint.parser,
       parserOptions: {
         project: [
-          './tsconfig.app.json',   // contains your app sources
-          './tsconfig.node.json'   // contains your vite.config.ts, etc.
+          './tsconfig.app.json',
+          './tsconfig.node.json'
         ],
         ecmaVersion: 'latest',
         sourceType: 'module',
@@ -68,7 +68,8 @@ export default defineConfig([
       import: importPlugin,
     },
     extends:[
-      tseslint.configs.recommended
+      tseslint.configs.recommended,
+      importPlugin.configs.typescript,
     ],
     rules: {
       ...reactHooks.configs['recommended-latest'].rules,
@@ -80,6 +81,11 @@ export default defineConfig([
       react: {
         version: 'detect',
       },
+      "import/resolver": {
+        typescript: true,
+        node: true,
+      },
+
     },
 
   },
