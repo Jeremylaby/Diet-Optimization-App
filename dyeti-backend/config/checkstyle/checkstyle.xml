@@ -55,6 +55,10 @@
               default="checkstyle-suppressions.xml" />
     <property name="optional" value="true"/>
   </module>
+    <module name="SuppressionSingleFilter">
+        <property name="checks" value="MagicNumber"/>
+        <property name="files" value=".*DataInitializer\.java"/>
+    </module>
 
 
   <!-- Checks whether files end with a new line.                        -->
@@ -165,6 +169,8 @@
     <module name="MultipleVariableDeclarations"/>
     <module name="SimplifyBooleanExpression"/>
     <module name="SimplifyBooleanReturn"/>
+
+
 
     <!-- Checks for class design                         -->
     <!-- See https://checkstyle.org/checks/design/index.html -->
