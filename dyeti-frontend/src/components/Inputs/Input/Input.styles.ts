@@ -21,3 +21,32 @@ export const InputField = styled.input<{ hasError?: boolean; textAlign?: 'left' 
     border-color: ${({ theme }) => theme.colors.primary[700]};
   }
 `;
+
+export const ToggleBtn = styled.button`
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: 0;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: ${({ theme }) => theme.colors.neutrals[900]};
+
+  &:hover {
+    opacity: 0.9;
+  }
+  &:focus {
+    outline: none;
+  }
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.primary[700]};
+    border-radius: 4px;
+  }
+`;
+export const InputShell = styled.div`
+  position: relative;
+  width: 100%;
+`;
